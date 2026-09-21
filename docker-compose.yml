@@ -1,0 +1,42 @@
+services:
+  # Ollama runs as its own container, serving the LLM over HTTP.
+  ollama:
+    image: ollama/ollama:latest
+    container_name: ollama
+    volumes:
+      # Named volume: persists downloaded models across container
+      # restarts, so you don't have to re-pull llama3.1:8b every time.
+      - ollama_data:/root/.ollama
+    ports:
+      - "11434:11434"
+    restart: unless-stopped
+
+  # Your app: retrieval + generation + Streamlit UI.
+  app:
+    build: .
+    container_name: cited-research-assistant
+    depends_on:
+      # Ensures the ollama container STARTS before this one.
+      # Caveat worth knowing: this does NOT guarantee Ollama is fully
+      # ready to serve requests yet, just that its container has
+      # started — fine for a POC where you'll open the browser a few
+      # seconds after startup anyway.
+      - ollama
+    environment:
+      # This is the key line: tells our app to reach Ollama at the
+      # service name "ollama" (Docker's internal DNS) instead of
+      # localhost, which only works because both containers are on
+      # the same compose network.
+      - OLLAMA_HOST=http://ollama:11434
+    volumes:
+      # Mount data/ and chroma_db/ from your host machine into the
+      # container, so your ingested papers and vector index persist
+      # across container rebuilds instead of vanishing every restart.
+      - ./data:/app/data
+      - ./chroma_db:/app/chroma_db
+    ports:
+      - "8501:8501"
+    restart: unless-stopped
+
+volumes:
+  ollama_data:
