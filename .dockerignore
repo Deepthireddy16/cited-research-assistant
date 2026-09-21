@@ -1,0 +1,21 @@
+# Virtual environment — never needed inside the container; the
+# Dockerfile installs dependencies fresh via requirements.txt
+venv/
+
+# Data and vector DB — these are mounted in via docker-compose volumes
+# instead, so they don't need to be baked into the image itself
+data/
+chroma_db/
+
+# Git metadata — irrelevant to the running app, just bloats build context
+.git/
+.gitignore
+
+# Python cache
+__pycache__/
+*.pyc
+
+# Not needed inside the container
+eval_results.md
+README.md
+interview_prep_guide.md

@@ -12,11 +12,20 @@ Usage:
 """
 
 import sys
+import os
 import ollama
 from retrieval import Retriever
 
 OLLAMA_MODEL = "llama3.1:8b"
 TOP_K = 5
+
+# Reads OLLAMA_HOST from the environment if set (e.g. inside Docker,
+# docker-compose sets this to "http://ollama:11434" so the app can
+# reach the separate Ollama container by its service name). Falls
+# back to localhost for normal local runs outside Docker — same code,
+# no changes needed, works in both environments.
+OLLAMA_HOST = os.environ.get("OLLAMA_HOST", "http://localhost:11434")
+_client = ollama.Client(host=OLLAMA_HOST)
 
 SYSTEM_PROMPT = """You are a research assistant that answers questions \
 using ONLY the provided sources below. Follow these rules strictly:
@@ -45,18 +54,22 @@ def build_context_block(chunks: list[dict]) -> str:
     return "\n".join(lines)
 
 
+def build_reference_line(chunk: dict, index: int) -> str:
+    """Formats a single reference line for one chunk, given its source number."""
+    authors = chunk["authors"]
+    if isinstance(authors, list):
+        authors = ", ".join(authors)
+    return (
+        f"[Source {index}] {chunk['title']} — {authors} "
+        f"(p.{chunk['page_number']}, arXiv:{chunk['arxiv_id']})"
+    )
+
+
 def build_references(chunks: list[dict]) -> str:
     """Builds the verified reference list from OUR metadata, not the model's output."""
-    lines = []
-    for i, chunk in enumerate(chunks, start=1):
-        authors = chunk["authors"]
-        if isinstance(authors, list):
-            authors = ", ".join(authors)
-        lines.append(
-            f"[Source {i}] {chunk['title']} — {authors} "
-            f"(p.{chunk['page_number']}, arXiv:{chunk['arxiv_id']})"
-        )
-    return "\n".join(lines)
+    return "\n".join(
+        build_reference_line(chunk, i) for i, chunk in enumerate(chunks, start=1)
+    )
 
 
 def answer_question(query: str, retriever: Retriever, top_k: int = TOP_K):
@@ -65,7 +78,7 @@ def answer_question(query: str, retriever: Retriever, top_k: int = TOP_K):
 
     user_prompt = f"Sources:\n{context}\n\nQuestion: {query}"
 
-    response = ollama.chat(
+    response = _client.chat(
         model=OLLAMA_MODEL,
         messages=[
             {"role": "system", "content": SYSTEM_PROMPT},
@@ -75,7 +88,7 @@ def answer_question(query: str, retriever: Retriever, top_k: int = TOP_K):
 
     answer = response["message"]["content"]
     references = build_references(chunks)
-    return answer, references
+    return answer, references, chunks
 
 
 if __name__ == "__main__":
@@ -90,7 +103,7 @@ if __name__ == "__main__":
     retriever = Retriever()
 
     print("Generating answer...\n")
-    answer, references = answer_question(query, retriever)
+    answer, references, chunks = answer_question(query, retriever)
 
     print("=== Answer ===")
     print(answer)
