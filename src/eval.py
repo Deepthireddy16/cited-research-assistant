@@ -39,7 +39,7 @@ def run_eval():
 
     for i, question in enumerate(TEST_QUESTIONS, start=1):
         print(f"\n[{i}/{len(TEST_QUESTIONS)}] {question}")
-        answer, references = answer_question(question, retriever)
+        answer, references, _chunks = answer_question(question, retriever)
 
         report_lines.append(f"## Q{i}: {question}\n")
         report_lines.append(f"**Answer:**\n\n{answer}\n")
