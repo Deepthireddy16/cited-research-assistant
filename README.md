@@ -47,6 +47,7 @@ arXiv API
 | Vector DB | Chroma | Embedded (no server), metadata-native, zero infrastructure |
 | Keyword search | rank_bm25 | Pure Python, no server, complements semantic search |
 | LLM | Ollama (llama3.1:8b) | Fully local — no API key, no rate limits, no cost |
+| Containerization | Docker + docker-compose | Two containers (app + Ollama), networked together — makes the whole environment portable and reproducible on any machine with Docker installed |
 
 ## Key design decisions
 
@@ -134,6 +135,40 @@ answer rather than hallucinating, even when the retriever still returned
    python src/generate.py "your question here"
    ```
 4. Optional: run the evaluation suite: `python src/eval.py`
+
+## Running with Docker (alternative to manual setup)
+
+The project is also fully containerized, so it can run on any machine
+with Docker installed, without manually setting up Python, a virtual
+environment, or Ollama locally.
+
+**Architecture:** two containers, orchestrated via `docker-compose`:
+- `app` — the Python pipeline + Streamlit UI
+- `ollama` — a separate container serving the LLM
+
+They communicate over Docker's internal network (the app reaches Ollama
+at `http://ollama:11434`, configured via an `OLLAMA_HOST` environment
+variable — the same code runs unmodified locally or in Docker).
+
+```bash
+git clone https://github.com/Deepthireddy16/cited-research-assistant.git
+cd cited-research-assistant
+
+docker compose build
+docker compose up -d
+
+# Pull the model into the container's own Ollama instance (not shared
+# with any Ollama installed on the host machine):
+docker exec -it ollama ollama pull llama3.1:8b
+```
+
+Then open **http://localhost:8501** in a browser.
+
+Note: `data/` and `chroma_db/` are mounted from the host via
+docker-compose volumes rather than baked into the image, so on a
+fresh machine you'd still need to run the ingestion pipeline
+(`ingest.py` → `chunk.py` → `embed.py`) once, either inside the
+container or locally, before querying.
 
 ## Possible future work
 
