@@ -48,6 +48,7 @@ arXiv API
 | Keyword search | rank_bm25 | Pure Python, no server, complements semantic search |
 | LLM | Ollama (llama3.1:8b) | Fully local — no API key, no rate limits, no cost |
 | Containerization | Docker + docker-compose | Two containers (app + Ollama), networked together — makes the whole environment portable and reproducible on any machine with Docker installed |
+| UI | Streamlit | Standard, lightweight way to wrap a Python pipeline in an interactive demo interface without building a separate frontend |
 
 ## Key design decisions
 
@@ -135,6 +136,23 @@ answer rather than hallucinating, even when the retriever still returned
    python src/generate.py "your question here"
    ```
 4. Optional: run the evaluation suite: `python src/eval.py`
+5. Optional: launch the interactive web UI: `streamlit run src/app.py`, then open http://localhost:8501
+
+## Web UI (Streamlit)
+
+`src/app.py` wraps the retrieval + generation pipeline in a simple
+interactive interface: type a question, click "Ask," and see the
+generated answer with inline `[Source N]` citations plus a references
+list underneath.
+
+One correctness detail worth noting: the UI only displays references
+for sources the model actually cited in its answer — not every chunk
+that was retrieved. Early on, the UI showed all 5 retrieved chunks
+regardless of whether the model used them, which meant a refusal
+answer (e.g. "I don't have that information") still displayed 5
+unrelated papers as if they'd informed it. This was fixed by parsing
+the answer text for `[Source N]` markers and filtering the reference
+list to only those actually cited.
 
 ## Running with Docker (alternative to manual setup)
 
